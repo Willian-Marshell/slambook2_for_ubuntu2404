@@ -11,7 +11,7 @@
 #include <g2o/core/solver.h>
 #include <g2o/core/optimization_algorithm_gauss_newton.h>
 #include <g2o/solvers/dense/linear_solver_dense.h>
-#include <sophus/se3.hpp>
+#include "sophus/se3.hpp"
 #include <chrono>
 
 using namespace std;
@@ -51,8 +51,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   //-- 读取图像
-  Mat img_1 = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-  Mat img_2 = imread(argv[2], CV_LOAD_IMAGE_COLOR);
+  Mat img_1 = imread(argv[1], IMREAD_COLOR);
+  Mat img_2 = imread(argv[2], IMREAD_COLOR);
   assert(img_1.data && img_2.data && "Can not load images!");
 
   vector<KeyPoint> keypoints_1, keypoints_2;
@@ -61,22 +61,25 @@ int main(int argc, char **argv) {
   cout << "一共找到了" << matches.size() << "组匹配点" << endl;
 
   // 建立3D点
-  Mat d1 = imread(argv[3], CV_LOAD_IMAGE_UNCHANGED);       // 深度图为16位无符号数，单通道图像
+  Mat d1 = imread(argv[3], IMREAD_UNCHANGED);       // 深度图为16位无符号数，单通道图像
   Mat K = (Mat_<double>(3, 3) << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1);
   vector<Point3f> pts_3d;
   vector<Point2f> pts_2d;
   for (DMatch m:matches) {
+    //深度图中第y行()第x列[]的深度数据
     ushort d = d1.ptr<unsigned short>(int(keypoints_1[m.queryIdx].pt.y))[int(keypoints_1[m.queryIdx].pt.x)];
     if (d == 0)   // bad depth
       continue;
     float dd = d / 5000.0;
-    Point2d p1 = pixel2cam(keypoints_1[m.queryIdx].pt, K);
-    pts_3d.push_back(Point3f(p1.x * dd, p1.y * dd, dd));
+    Point2d p1 = pixel2cam(keypoints_1[m.queryIdx].pt, K);    //相机坐标系下的空间点归一化坐标
+    pts_3d.push_back(Point3f(p1.x * dd, p1.y * dd, dd));      //添加了真实（尺度确定）的深度信息后的空间点坐标
     pts_2d.push_back(keypoints_2[m.trainIdx].pt);
   }
 
   cout << "3d-2d pairs: " << pts_3d.size() << endl;
-
+  /*******************
+  ****调用OpenCV中的EPnP方法求解3D-2D相机位姿
+  ********************/
   chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
   Mat r, t;
   solvePnP(pts_3d, pts_2d, K, Mat(), r, t, false); // 调用OpenCV 的 PnP 求解，可选择EPNP，DLS等方法
@@ -88,26 +91,30 @@ int main(int argc, char **argv) {
 
   cout << "R=" << endl << R << endl;
   cout << "t=" << endl << t << endl;
-
+  /***********************************/
   VecVector3d pts_3d_eigen;
   VecVector2d pts_2d_eigen;
   for (size_t i = 0; i < pts_3d.size(); ++i) {
     pts_3d_eigen.push_back(Eigen::Vector3d(pts_3d[i].x, pts_3d[i].y, pts_3d[i].z));
     pts_2d_eigen.push_back(Eigen::Vector2d(pts_2d[i].x, pts_2d[i].y));
   }
-
+  /********************
+  ****手写高斯牛顿法求解PnP问题
+  *********************/
   cout << "calling bundle adjustment by gauss newton" << endl;
   Sophus::SE3d pose_gn;
   t1 = chrono::steady_clock::now();
-  bundleAdjustmentGaussNewton(pts_3d_eigen, pts_2d_eigen, K, pose_gn);
+  bundleAdjustmentGaussNewton(pts_3d_eigen, pts_2d_eigen, K, pose_gn);  //pose_gn为待估计位姿
   t2 = chrono::steady_clock::now();
   time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
   cout << "solve pnp by gauss newton cost time: " << time_used.count() << " seconds." << endl;
-
+  /********************
+  ****g2o优化库求解PnP问题
+  *********************/
   cout << "calling bundle adjustment by g2o" << endl;
   Sophus::SE3d pose_g2o;
   t1 = chrono::steady_clock::now();
-  bundleAdjustmentG2O(pts_3d_eigen, pts_2d_eigen, K, pose_g2o);
+  bundleAdjustmentG2O(pts_3d_eigen, pts_2d_eigen, K, pose_g2o);         //pose_g2o为ie待估计位姿
   t2 = chrono::steady_clock::now();
   time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
   cout << "solve pnp by g2o cost time: " << time_used.count() << " seconds." << endl;
@@ -182,23 +189,23 @@ void bundleAdjustmentGaussNewton(
   double cx = K.at<double>(0, 2);
   double cy = K.at<double>(1, 2);
 
-  for (int iter = 0; iter < iterations; iter++) {
+  for (int iter = 0; iter < iterations; iter++) {                         //迭代10次
     Eigen::Matrix<double, 6, 6> H = Eigen::Matrix<double, 6, 6>::Zero();
     Vector6d b = Vector6d::Zero();
 
     cost = 0;
     // compute cost
-    for (int i = 0; i < points_3d.size(); i++) {
-      Eigen::Vector3d pc = pose * points_3d[i];
+    for (int i = 0; i < points_3d.size(); i++) {                          //遍历所有匹配点对
+      Eigen::Vector3d pc = pose * points_3d[i];   //将3d点坐标（相对于相机1）通过变换矩阵得到相对于相机2的3d点
       double inv_z = 1.0 / pc[2];
       double inv_z2 = inv_z * inv_z;
-      Eigen::Vector2d proj(fx * pc[0] / pc[2] + cx, fy * pc[1] / pc[2] + cy);
+      Eigen::Vector2d proj(fx * pc[0] / pc[2] + cx, fy * pc[1] / pc[2] + cy);//计算3d点在相机2图像上的投影
 
-      Eigen::Vector2d e = points_2d[i] - proj;
+      Eigen::Vector2d e = points_2d[i] - proj;    //计算重投影误差
 
-      cost += e.squaredNorm();
+      cost += e.squaredNorm();                    //计算总体误差
       Eigen::Matrix<double, 2, 6> J;
-      J << -fx * inv_z,
+      J << -fx * inv_z,                           //误差相对于位姿T的雅可比矩阵
         0,
         fx * pc[0] * inv_z2,
         fx * pc[0] * pc[1] * inv_z2,
@@ -211,30 +218,30 @@ void bundleAdjustmentGaussNewton(
         -fy * pc[0] * pc[1] * inv_z2,
         -fy * pc[0] * inv_z;
 
-      H += J.transpose() * J;
-      b += -J.transpose() * e;
+      H += J.transpose() * J;                     //近似的hessian矩阵
+      b += -J.transpose() * e;                    //H dx=b，高斯牛顿法求解最小二乘问题，dx为位姿变化量（李代数）
     }
 
     Vector6d dx;
     dx = H.ldlt().solve(b);
 
-    if (isnan(dx[0])) {
+    if (isnan(dx[0])) {                           //(1)如果位姿变化量dx无解，则提前结束迭代
       cout << "result is nan!" << endl;
       break;
     }
 
-    if (iter > 0 && cost >= lastCost) {
+    if (iter > 0 && cost >= lastCost) {           //(2)如果目标函数发散，则提前结束迭代
       // cost increase, update is not good
       cout << "cost: " << cost << ", last cost: " << lastCost << endl;
       break;
     }
 
     // update your estimation
-    pose = Sophus::SE3d::exp(dx) * pose;
+    pose = Sophus::SE3d::exp(dx) * pose;          //将李代数通过指数映射得到位姿扰动量并左乘给上一次的位姿估计量pose
     lastCost = cost;
 
     cout << "iteration " << iter << " cost=" << std::setprecision(12) << cost << endl;
-    if (dx.norm() < 1e-6) {
+    if (dx.norm() < 1e-6) {                       //(3)如果位姿变化量小于阈值1e-6,则说明目标收敛，结束迭代
       // converge
       break;
     }

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 
 // for sophus
 #include <sophus/se3.hpp>
@@ -62,7 +62,7 @@ bool readDatasetFiles(
  * @param depth_cov     深度方差
  * @return              是否成功
  */
-bool update(
+void update(
     const Mat &ref,
     const Mat &curr,
     const SE3d &T_C_R,
@@ -204,8 +204,8 @@ int main(int argc, char **argv) {
         if (curr.data == nullptr) continue;
         SE3d pose_curr_TWC = poses_TWC[index];
         SE3d pose_T_C_R = pose_curr_TWC.inverse() * pose_ref_TWC;   // 坐标转换关系： T_C_W * T_W_R = T_C_R
-        update(ref, curr, pose_T_C_R, depth, depth_cov2);
-        evaludateDepth(ref_depth, depth);
+        update(ref, curr, pose_T_C_R, depth, depth_cov2);  // 根据方差和均值得到极线线段后进行搜索、块匹配、更新深度均值/方差
+        evaludateDepth(ref_depth, depth);                  // 真值与估计值的比较
         plotDepth(ref_depth, depth);
         imshow("image", curr);
         waitKey(1);
@@ -257,7 +257,7 @@ bool readDatasetFiles(
 }
 
 // 对整个深度图进行更新
-bool update(const Mat &ref, const Mat &curr, const SE3d &T_C_R, Mat &depth, Mat &depth_cov2) {
+void update(const Mat &ref, const Mat &curr, const SE3d &T_C_R, Mat &depth, Mat &depth_cov2) {
     for (int x = boarder; x < width - boarder; x++)
         for (int y = boarder; y < height - boarder; y++) {
             // 遍历每个像素
@@ -409,13 +409,13 @@ bool updateDepthFilter(
     double a_norm = a.norm();
     double alpha = acos(f_ref.dot(t) / t_norm);
     double beta = acos(-a.dot(t) / (a_norm * t_norm));
-    Vector3d f_curr_prime = px2cam(pt_curr + epipolar_direction);
+    Vector3d f_curr_prime = px2cam(pt_curr + epipolar_direction);   //在极线方向上偏移一个像素
     f_curr_prime.normalize();
     double beta_prime = acos(f_curr_prime.dot(-t) / t_norm);
     double gamma = M_PI - alpha - beta_prime;
     double p_prime = t_norm * sin(beta_prime) / sin(gamma);
-    double d_cov = p_prime - depth_estimation;
-    double d_cov2 = d_cov * d_cov;
+    double d_cov = p_prime - depth_estimation;                      //标准差
+    double d_cov2 = d_cov * d_cov;                                  //方差
 
     // 高斯融合
     double mu = depth.ptr<double>(int(pt_ref(1, 0)))[int(pt_ref(0, 0))];
@@ -457,8 +457,8 @@ void evaludateDepth(const Mat &depth_truth, const Mat &depth_estimate) {
 
 void showEpipolarMatch(const Mat &ref, const Mat &curr, const Vector2d &px_ref, const Vector2d &px_curr) {
     Mat ref_show, curr_show;
-    cv::cvtColor(ref, ref_show, CV_GRAY2BGR);
-    cv::cvtColor(curr, curr_show, CV_GRAY2BGR);
+    cv::cvtColor(ref, ref_show, cv::COLOR_GRAY2BGR);
+    cv::cvtColor(curr, curr_show, cv::COLOR_GRAY2BGR);
 
     cv::circle(ref_show, cv::Point2f(px_ref(0, 0), px_ref(1, 0)), 5, cv::Scalar(0, 0, 250), 2);
     cv::circle(curr_show, cv::Point2f(px_curr(0, 0), px_curr(1, 0)), 5, cv::Scalar(0, 0, 250), 2);
@@ -472,8 +472,8 @@ void showEpipolarLine(const Mat &ref, const Mat &curr, const Vector2d &px_ref, c
                       const Vector2d &px_max_curr) {
 
     Mat ref_show, curr_show;
-    cv::cvtColor(ref, ref_show, CV_GRAY2BGR);
-    cv::cvtColor(curr, curr_show, CV_GRAY2BGR);
+    cv::cvtColor(ref, ref_show, cv::COLOR_GRAY2BGR);
+    cv::cvtColor(curr, curr_show, cv::COLOR_GRAY2BGR);
 
     cv::circle(ref_show, cv::Point2f(px_ref(0, 0), px_ref(1, 0)), 5, cv::Scalar(0, 255, 0), 2);
     cv::circle(curr_show, cv::Point2f(px_min_curr(0, 0), px_min_curr(1, 0)), 5, cv::Scalar(0, 255, 0), 2);

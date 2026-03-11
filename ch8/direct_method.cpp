@@ -102,7 +102,7 @@ void DirectPoseEstimationSingleLayer(
     Sophus::SE3d &T21
 );
 
-// bilinear interpolation
+// bilinear interpolation       双线性插值获取像素值
 inline float GetPixelValue(const cv::Mat &img, float x, float y) {
     // boundary check
     if (x < 0) x = 0;
@@ -201,9 +201,9 @@ void DirectPoseEstimationSingleLayer(
     auto time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "direct method for single layer: " << time_used.count() << endl;
 
-    // plot the projected pixels here
+    // plot the projected pixels here 画出投影点和误差线，验证结果正确性
     cv::Mat img2_show;
-    cv::cvtColor(img2, img2_show, CV_GRAY2BGR);
+    cv::cvtColor(img2, img2_show, cv::COLOR_GRAY2BGR);
     VecVector2d projection = jaco_accu.projected_points();
     for (size_t i = 0; i < px_ref.size(); ++i) {
         auto p_ref = px_ref[i];
@@ -230,23 +230,25 @@ void JacobianAccumulator::accumulate_jacobian(const cv::Range &range) {
     for (size_t i = range.start; i < range.end; i++) {
 
         // compute the projection in the second image
+        // 第一张图像中的路标点坐标p转为第一张图像的相机坐标系下的坐标point_ref
         Eigen::Vector3d point_ref =
             depth_ref[i] * Eigen::Vector3d((px_ref[i][0] - cx) / fx, (px_ref[i][1] - cy) / fy, 1);
+        // 再通过T21变换到第二张图像的相机坐标系下的坐标point_cur
         Eigen::Vector3d point_cur = T21 * point_ref;
         if (point_cur[2] < 0)   // depth invalid
             continue;
-
+        // 最后投影到第二张图像上得到像素坐标(u, v)
         float u = fx * point_cur[0] / point_cur[2] + cx, v = fy * point_cur[1] / point_cur[2] + cy;
         if (u < half_patch_size || u > img2.cols - half_patch_size || v < half_patch_size ||
             v > img2.rows - half_patch_size)
             continue;
-
+        //记录于类中的成员变量projection
         projection[i] = Eigen::Vector2d(u, v);
         double X = point_cur[0], Y = point_cur[1], Z = point_cur[2],
             Z2 = Z * Z, Z_inv = 1.0 / Z, Z2_inv = Z_inv * Z_inv;
         cnt_good++;
 
-        // and compute error and jacobian
+        // and compute error and jacobian 在区块内对每个像素点计算误差和雅可比矩阵
         for (int x = -half_patch_size; x <= half_patch_size; x++)
             for (int y = -half_patch_size; y <= half_patch_size; y++) {
 
@@ -282,7 +284,7 @@ void JacobianAccumulator::accumulate_jacobian(const cv::Range &range) {
                 cost_tmp += error * error;
             }
     }
-
+    // 对于每个线程计算的hessian、bias和cost进行累加，注意要加锁
     if (cnt_good) {
         // set hessian, bias and cost
         unique_lock<mutex> lck(hessian_mutex);
@@ -304,7 +306,7 @@ void DirectPoseEstimationMultiLayer(
     double pyramid_scale = 0.5;
     double scales[] = {1.0, 0.5, 0.25, 0.125};
 
-    // create pyramids
+    // create pyramids 创建图像金字塔
     vector<cv::Mat> pyr1, pyr2; // image pyramids
     for (int i = 0; i < pyramids; i++) {
         if (i == 0) {
@@ -320,7 +322,7 @@ void DirectPoseEstimationMultiLayer(
             pyr2.push_back(img2_pyr);
         }
     }
-
+    // 对于每一层图像金字塔，进行单层直接法的位姿估计，在缩放特征点的同时，还注意要对相机内参进行缩放
     double fxG = fx, fyG = fy, cxG = cx, cyG = cy;  // backup the old values
     for (int level = pyramids - 1; level >= 0; level--) {
         VecVector2d px_ref_pyr; // set the keypoints in this pyramid level

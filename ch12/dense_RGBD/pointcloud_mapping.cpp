@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
                 point[2] = double(d) / depthScale;
                 point[0] = (u - cx) * point[2] / fx;
                 point[1] = (v - cy) * point[2] / fy;
-                Eigen::Vector3d pointWorld = T * point;
+                Eigen::Vector3d pointWorld = T * point;         //根据像素坐标、深度信息和T_W_C求出点的世界坐标
 
                 PointT p;
                 p.x = pointWorld[0];
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
 
     // voxel filter 
     pcl::VoxelGrid<PointT> voxel_filter;
-    double resolution = 0.03;
+    double resolution = 0.03;               //降采样后的精度,源码为0.03
     voxel_filter.setLeafSize(resolution, resolution, resolution);       // resolution
     PointCloud::Ptr tmp(new PointCloud);
     voxel_filter.setInputCloud(pointCloud);

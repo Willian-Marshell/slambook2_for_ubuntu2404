@@ -3,7 +3,7 @@
 * use pangolin: slambook/3rdpart/Pangolin or download it from github: https://github.com/stevenlovegrove/Pangolin
 
 * install dependency for pangolin (mainly the OpenGL): 
-sudo apt-get install libglew-dev
+sudo apt-get install libglew-dev libepoxy-dev(modified by zzx)
 
 * compile and install pangolin
 cd [path-to-pangolin]

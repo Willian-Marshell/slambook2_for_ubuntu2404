@@ -115,12 +115,12 @@ int main(int argc, char **argv) {
     detector->detect(img1, kp1);
 
     // now lets track these key points in the second image
-    // first use single level LK in the validation picture
+    // first use single level LK in the validation picture 单层光流
     vector<KeyPoint> kp2_single;
     vector<bool> success_single;
     OpticalFlowSingleLevel(img1, img2, kp1, kp2_single, success_single);
 
-    // then test multi-level LK
+    // then test multi-level LK 多层光流
     vector<KeyPoint> kp2_multi;
     vector<bool> success_multi;
     chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
 
     // plot the differences of those functions
     Mat img2_single;
-    cv::cvtColor(img2, img2_single, CV_GRAY2BGR);
+    cv::cvtColor(img2, img2_single, cv::COLOR_GRAY2BGR);
     for (int i = 0; i < kp2_single.size(); i++) {
         if (success_single[i]) {
             cv::circle(img2_single, kp2_single[i].pt, 2, cv::Scalar(0, 250, 0), 2);
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
     }
 
     Mat img2_multi;
-    cv::cvtColor(img2, img2_multi, CV_GRAY2BGR);
+    cv::cvtColor(img2, img2_multi, cv::COLOR_GRAY2BGR);
     for (int i = 0; i < kp2_multi.size(); i++) {
         if (success_multi[i]) {
             cv::circle(img2_multi, kp2_multi[i].pt, 2, cv::Scalar(0, 250, 0), 2);
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
     }
 
     Mat img2_CV;
-    cv::cvtColor(img2, img2_CV, CV_GRAY2BGR);
+    cv::cvtColor(img2, img2_CV, cv::COLOR_GRAY2BGR);
     for (int i = 0; i < pt2.size(); i++) {
         if (status[i]) {
             cv::circle(img2_CV, pt2[i], 2, cv::Scalar(0, 250, 0), 2);
@@ -292,7 +292,7 @@ void OpticalFlowMultiLevel(
     vector<bool> &success,
     bool inverse) {
 
-    // parameters
+    // parameters   4层图像金字塔，缩放系数为0.5
     int pyramids = 4;
     double pyramid_scale = 0.5;
     double scales[] = {1.0, 0.5, 0.25, 0.125};
@@ -318,7 +318,7 @@ void OpticalFlowMultiLevel(
     auto time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "build pyramid time: " << time_used.count() << endl;
 
-    // coarse-to-fine LK tracking in pyramids
+    // coarse-to-fine LK tracking in pyramids   金字塔顶层对应的关键点坐标
     vector<KeyPoint> kp1_pyr, kp2_pyr;
     for (auto &kp:kp1) {
         auto kp_top = kp;
@@ -336,10 +336,10 @@ void OpticalFlowMultiLevel(
         auto time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
         cout << "track pyr " << level << " cost time: " << time_used.count() << endl;
 
-        if (level > 0) {
+        if (level > 0) {                //将当前层的kp坐标放大2倍，作为下一层的初始值
             for (auto &kp: kp1_pyr)
                 kp.pt /= pyramid_scale;
-            for (auto &kp: kp2_pyr)
+            for (auto &kp: kp2_pyr)     //这里的kp2_pyr是上一层算出的kp2_pyr，已经被更新了，所以直接放大就行了
                 kp.pt /= pyramid_scale;
         }
     }

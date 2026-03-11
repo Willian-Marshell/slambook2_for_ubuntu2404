@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   //-- 读取图像
-  Mat img_1 = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-  Mat img_2 = imread(argv[2], CV_LOAD_IMAGE_COLOR);
+  Mat img_1 = imread(argv[1], IMREAD_COLOR);
+  Mat img_2 = imread(argv[2], IMREAD_COLOR);
 
   vector<KeyPoint> keypoints_1, keypoints_2;
   vector<DMatch> matches;
@@ -104,8 +104,8 @@ int main(int argc, char **argv) {
   cout << "一共找到了" << matches.size() << "组匹配点" << endl;
 
   // 建立3D点
-  Mat depth1 = imread(argv[3], CV_LOAD_IMAGE_UNCHANGED);       // 深度图为16位无符号数，单通道图像
-  Mat depth2 = imread(argv[4], CV_LOAD_IMAGE_UNCHANGED);       // 深度图为16位无符号数，单通道图像
+  Mat depth1 = imread(argv[3], IMREAD_UNCHANGED);       // 深度图为16位无符号数，单通道图像
+  Mat depth2 = imread(argv[4], IMREAD_UNCHANGED);       // 深度图为16位无符号数，单通道图像
   Mat K = (Mat_<double>(3, 3) << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1);
   vector<Point3f> pts1, pts2;
 
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     pts1.push_back(Point3f(p1.x * dd1, p1.y * dd1, dd1));
     pts2.push_back(Point3f(p2.x * dd2, p2.y * dd2, dd2));
   }
-
+  /*****SVD解法******/
   cout << "3d-3d pairs: " << pts1.size() << endl;
   Mat R, t;
   pose_estimation_3d3d(pts1, pts2, R, t);
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
   cout << "t_inv = " << -R.t() * t << endl;
 
   cout << "calling bundle adjustment" << endl;
-
+  /******非线性BA解法******/
   bundleAdjustment(pts1, pts2, R, t);
 
   // verify p1 = R * p2 + t
@@ -210,8 +210,8 @@ void pose_estimation_3d3d(const vector<Point3f> &pts1,
     p2 += pts2[i];
   }
   p1 = Point3f(Vec3f(p1) / N);
-  p2 = Point3f(Vec3f(p2) / N);
-  vector<Point3f> q1(N), q2(N); // remove the center
+  p2 = Point3f(Vec3f(p2) / N);                        //计算质心
+  vector<Point3f> q1(N), q2(N); // remove the center  去质心坐标
   for (int i = 0; i < N; i++) {
     q1[i] = pts1[i] - p1;
     q2[i] = pts2[i] - p2;
