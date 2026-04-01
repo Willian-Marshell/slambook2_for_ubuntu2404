@@ -41,3 +41,4 @@
 *.pcd
 *.ply
 /ch12/dense_mono/remode_test_data/
+/3rdparty/
