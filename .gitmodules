@@ -1,18 +1,18 @@
-[submodule "3rdparty/Pangolin"]
-	path = 3rdparty/Pangolin
+[submodule "3rdparty/Pangolin-master"]
+	path = 3rdparty/Pangolin-master
 	url = https://github.com/stevenlovegrove/Pangolin.git
-[submodule "3rdparty/Sophus"]
-	path = 3rdparty/Sophus
+[submodule "3rdparty/Sophus-main"]
+	path = 3rdparty/Sophus-main
 	url = https://github.com/strasdat/Sophus.git
-[submodule "3rdparty/ceres-solver"]
-	path = 3rdparty/ceres-solver
+[submodule "3rdparty/ceres-solver-master"]
+	path = 3rdparty/ceres-solver-master
 	url = https://github.com/ceres-solver/ceres-solver.git
-[submodule "3rdparty/g2o"]
-	path = 3rdparty/g2o
+[submodule "3rdparty/g2o-20200410_git"]
+	path = 3rdparty/g2o-20200410_git
 	url = https://github.com/RainerKuemmerle/g2o/tree/20200410_git
-[submodule "3rdparty/DBoW3"]
-	path = 3rdparty/DBoW3
+[submodule "3rdparty/DBow3-master"]
+	path = 3rdparty/DBow3-master
 	url = https://github.com/rmsalinas/DBow3.git
-[submodule "3rdparty/googletest"]
-	path = 3rdparty/googletest
-	url = https://github.com/google/googletest.git
+[submodule "3rdparty/opencv-4.12.0"]
+	path = 3rdparty/opencv-4.12.0
+	url = https://github.com/opencv/opencv.git
