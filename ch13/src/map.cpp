@@ -1,20 +1,9 @@
-/*
- * <one line to give the program's name and a brief idea of what it does.>
- * Copyright (C) 2016  <copyright holder> <email>
+/**
+ * @file map.cpp
+ * @brief Map类实现
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * 管理关键帧和地图点的插入、删除、查询。
+ * @note 定义见 map.h
  */
 
 #include "myslam/map.h"
@@ -22,6 +11,14 @@
 
 namespace myslam {
 
+/**
+ * @brief 插入关键帧
+ *
+ * 将关键帧插入到关键帧列表，如果活跃关键帧数量超过阈值，
+ * 调用 RemoveOldKeyframe() 移除旧的关键帧。
+ * @param frame 关键帧
+ * @note 调用位置: frontend.cpp 的 InsertKeyframe(), BuildInitMap() 调用
+ */
 void Map::InsertKeyFrame(Frame::Ptr frame) {
     current_frame_ = frame;
     if (keyframes_.find(frame->keyframe_id_) == keyframes_.end()) {
@@ -37,6 +34,11 @@ void Map::InsertKeyFrame(Frame::Ptr frame) {
     }
 }
 
+/**
+ * @brief 插入地图点
+ * @param map_point 地图点
+ * @note 调用位置: frontend.cpp 的 BuildInitMap(), TriangulateNewPoints() 调用
+ */
 void Map::InsertMapPoint(MapPoint::Ptr map_point) {
     if (landmarks_.find(map_point->id_) == landmarks_.end()) {
         landmarks_.insert(make_pair(map_point->id_, map_point));
@@ -47,6 +49,15 @@ void Map::InsertMapPoint(MapPoint::Ptr map_point) {
     }
 }
 
+/**
+ * @brief 移除旧的关键帧
+ *
+ * 计算当前帧与所有活跃关键帧的距离：
+ * - 如果存在距离很近（<0.2）的关键帧，优先删除最近的
+ * - 否则删除距离最远的关键帧
+ * 同时移除该关键帧上所有特征点对该地图点的观测。
+ * @note 调用位置: InsertKeyFrame() 当活跃关键帧超过数量时调用
+ */
 void Map::RemoveOldKeyframe() {
     if (current_frame_ == nullptr) return;
     // 寻找与当前帧最近与最远的两个关键帧
@@ -96,6 +107,12 @@ void Map::RemoveOldKeyframe() {
     CleanMap();
 }
 
+/**
+ * @brief 清理地图
+ *
+ * 移除活跃地图点中被观测次数为0的点。
+ * @note 调用位置: RemoveOldKeyframe() 调用
+ */
 void Map::CleanMap() {
     int cnt_landmark_removed = 0;
     for (auto iter = active_landmarks_.begin();

@@ -1,6 +1,11 @@
-//
-// Created by gaoxiang on 19-5-4.
-//
+/**
+ * @file viewer.cpp
+ * @brief Viewer类实现
+ *
+ * 使用Pangolin库进行3D可视化，在独立线程中运行。
+ * @note 定义见 viewer.h
+ */
+
 #include "myslam/viewer.h"
 #include "myslam/feature.h"
 #include "myslam/frame.h"
@@ -10,20 +15,39 @@
 
 namespace myslam {
 
+/**
+ * @brief 构造函数，启动渲染线程
+ * @note 调用位置: visual_odometry.cpp 的 Init() 创建Viewer时调用
+ */
 Viewer::Viewer() {
     viewer_thread_ = std::thread(std::bind(&Viewer::ThreadLoop, this));
 }
 
+/**
+ * @brief 关闭可视化窗口
+ * @note 调用位置: visual_odometry.cpp 的 Run() 循环退出时调用
+ */
 void Viewer::Close() {
     viewer_running_ = false;
     viewer_thread_.join();
 }
 
+/**
+ * @brief 添加当前帧用于显示
+ * @param current_frame 当前帧
+ * @note 调用位置: frontend.cpp 的 Track(), StereoInit() 调用
+ */
 void Viewer::AddCurrentFrame(Frame::Ptr current_frame) {
     std::unique_lock<std::mutex> lck(viewer_data_mutex_);
     current_frame_ = current_frame;
 }
 
+/**
+ * @brief 更新地图显示
+ *
+ * 从地图获取活跃关键帧和地图点用于渲染。
+ * @note 调用位置: frontend.cpp 的 InsertKeyframe(), StereoInit() 调用
+ */
 void Viewer::UpdateMap() {
     std::unique_lock<std::mutex> lck(viewer_data_mutex_);
     assert(map_ != nullptr);
@@ -32,6 +56,15 @@ void Viewer::UpdateMap() {
     map_updated_ = true;
 }
 
+/**
+ * @brief 渲染循环
+ *
+ * 在独立线程中持续渲染Pangolin窗口，显示：
+ * - 当前帧相机位姿（绿色）
+ * - 关键帧轨迹（红色）
+ * - 地图点（红色）
+ * - 当前帧图像（带特征点标注）
+ */
 void Viewer::ThreadLoop() {
     pangolin::CreateWindowAndBind("MySLAM", 1024, 768);
     glEnable(GL_DEPTH_TEST);
@@ -77,6 +110,12 @@ void Viewer::ThreadLoop() {
     LOG(INFO) << "Stop viewer";
 }
 
+/**
+ * @brief 绘制当前帧图像特征点
+ *
+ * 在左图上绘制有地图点关联的特征点（绿色圆点）。
+ * @return 带有特征点标注的图像
+ */
 cv::Mat Viewer::PlotFrameImage() {
     cv::Mat img_out;
     cv::cvtColor(current_frame_->left_img_, img_out, cv::COLOR_GRAY2BGR);
@@ -90,12 +129,25 @@ cv::Mat Viewer::PlotFrameImage() {
     return img_out;
 }
 
+/**
+ * @brief 跟随当前帧视角
+ *
+ * 将相机视角对准当前帧位置。
+ * @param vis_camera Pangolin相机状态
+ */
 void Viewer::FollowCurrentFrame(pangolin::OpenGlRenderState& vis_camera) {
     SE3 Twc = current_frame_->Pose().inverse();
     pangolin::OpenGlMatrix m(Twc.matrix());
     vis_camera.Follow(m, true);
 }
 
+/**
+ * @brief 绘制帧（相机位姿）
+ *
+ * 使用OpenGL绘制相机锥体（8条边组成的金字塔）。
+ * @param frame 要绘制的帧
+ * @param color RGB颜色数组
+ */
 void Viewer::DrawFrame(Frame::Ptr frame, const float* color) {
     SE3 Twc = frame->Pose().inverse();
     const float sz = 1.0;
@@ -144,6 +196,12 @@ void Viewer::DrawFrame(Frame::Ptr frame, const float* color) {
     glPopMatrix();
 }
 
+/**
+ * @brief 绘制地图点
+ *
+ * 使用OpenGL绘制所有活跃关键帧（红色相机锥体）
+ * 和所有活跃地图点（红色点云）。
+ */
 void Viewer::DrawMapPoints() {
     const float red[3] = {1.0, 0, 0};
     for (auto& kf : active_keyframes_) {

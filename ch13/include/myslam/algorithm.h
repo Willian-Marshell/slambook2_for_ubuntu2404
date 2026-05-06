@@ -1,3 +1,13 @@
+/**
+ * @file algorithm.h
+ * @brief 视觉里程计中使用的核心算法
+ *
+ * 包含三角化、坐标转换等基础算法。
+ * @note 调用位置:
+ * - triangulation() 被 frontend.cpp 的 TriangulateNewPoints() 调用
+ * - toVec2() 被 frontend.cpp 多处调用
+ */
+
 //
 // Created by gaoxiang on 19-5-4.
 //
@@ -11,11 +21,14 @@
 namespace myslam {
 
 /**
- * linear triangulation with SVD
- * @param poses     poses,
- * @param points    points in normalized plane
- * @param pt_world  triangulated point in the world
- * @return true if success
+ * @brief 线性三角化（SVD方法）
+ *
+ * 根据多帧位姿和对应的归一化平面坐标，通过SVD分解求解三维点
+ * @param poses    相机位姿列表（Tcw）
+ * @param points   归一化平面上的2D点坐标
+ * @param pt_world  输出的世界坐标系下三维点
+ * @return true 如果求解成功（奇异性比值满足条件）
+ * @note 调用位置: frontend.cpp 的 TriangulateNewPoints() 调用
  */
 inline bool triangulation(const std::vector<SE3> &poses,
                    const std::vector<Vec3> points, Vec3 &pt_world) {
@@ -37,7 +50,12 @@ inline bool triangulation(const std::vector<SE3> &poses,
     return false;
 }
 
-// converters
+/**
+ * @brief OpenCV Point2f 转 Eigen Vec2
+ * @param p OpenCV 2D点
+ * @return Eigen Vec2 类型
+ * @note 调用位置: frontend.cpp 的 TrackLastFrame(), EstimateCurrentPose() 等多处调用
+ */
 inline Vec2 toVec2(const cv::Point2f p) { return Vec2(p.x, p.y); }
 
 }  // namespace myslam

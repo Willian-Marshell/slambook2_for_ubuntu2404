@@ -1,3 +1,12 @@
+/**
+ * @file common_include.h
+ * @brief 公共头文件，包含所有模块共用的类型定义和第三方库
+ *
+ * 定义了常用的类型别名（Eigen矩阵/向量、Sophus李代数等），
+ * 被其他所有头文件包含，避免重复引用。
+ * @note 调用位置: 被 include/myslam/ 下所有头文件引用
+ */
+
 #pragma once
 #ifndef MYSLAM_COMMON_INCLUDE_H
 #define MYSLAM_COMMON_INCLUDE_H
@@ -102,8 +111,8 @@ typedef Eigen::Matrix<float, 14, 1> Vec14f;
 #include <sophus/se3.hpp>
 #include <sophus/so3.hpp>
 
-typedef Sophus::SE3d SE3;
-typedef Sophus::SO3d SO3;
+typedef Sophus::SE3d SE3;  ///< 李代数SE3，用于表示相机位姿
+typedef Sophus::SO3d SO3;  ///< 李代数SO3，用于表示旋转
 
 // for cv
 #include <opencv2/core/core.hpp>

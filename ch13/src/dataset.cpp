@@ -1,3 +1,11 @@
+/**
+ * @file dataset.cpp
+ * @brief Dataset类实现
+ *
+ * 读取KITTI格式数据集的双目图像和相机标定参数。
+ * @note 定义见 dataset.h
+ */
+
 #include "myslam/dataset.h"
 #include "myslam/frame.h"
 
@@ -8,9 +16,20 @@ using namespace std;
 
 namespace myslam {
 
+/**
+ * @brief 构造函数
+ * @param dataset_path 数据集根目录
+ */
 Dataset::Dataset(const std::string& dataset_path)
     : dataset_path_(dataset_path) {}
 
+/**
+ * @brief 初始化，读取相机标定参数
+ *
+ * 从 calib.txt 读取相机内外参，创建相机对象。
+ * @return true 初始化成功
+ * @note 调用位置: visual_odometry.cpp 的 Init() 调用
+ */
 bool Dataset::Init() {
     // read camera intrinsics and extrinsics
     ifstream fin(dataset_path_ + "/calib.txt");
@@ -46,6 +65,13 @@ bool Dataset::Init() {
     return true;
 }
 
+/**
+ * @brief 读取下一帧
+ *
+ * 从数据集读取双目图像，构建Frame并返回。
+ * @return Frame::Ptr 包含双目图像的帧，如果读到末尾则返回nullptr
+ * @note 调用位置: visual_odometry.cpp 的 Step() 调用
+ */
 Frame::Ptr Dataset::NextFrame() {
     boost::format fmt("%s/image_%d/%06d.png");
     cv::Mat image_left, image_right;

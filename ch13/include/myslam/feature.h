@@ -1,3 +1,14 @@
+/**
+ * @file feature.h
+ * @brief 2D特征点结构体
+ *
+ * 表示图像中提取的特征点，包含位置信息和关联的地图点。
+ * @note 调用位置:
+ * - frontend.cpp 的 DetectFeatures(), FindFeaturesInRight(), SetObservationsForKeyFrame() 调用
+ * - mappoint.h 的 observations_ 关联 Feature
+ * - map.cpp 的 CleanMap() 调用
+ */
+
 //
 // Created by gaoxiang on 19-5-2.
 //
@@ -16,8 +27,10 @@ struct Frame;
 struct MapPoint;
 
 /**
- * 2D 特征点
- * 在三角化之后会被关联一个地图点
+ * @brief 2D特征点
+ *
+ * 在图像中提取的特征点，三角化后关联地图点。
+ * 通过 weak_ptr 避免循环引用。
  */
 struct Feature {
    public:
@@ -34,6 +47,11 @@ struct Feature {
    public:
     Feature() {}
 
+    /**
+     * @brief 构造函数
+     * @param frame 所属帧
+     * @param kp OpenCV特征点
+     */
     Feature(std::shared_ptr<Frame> frame, const cv::KeyPoint &kp)
         : frame_(frame), position_(kp) {}
 };

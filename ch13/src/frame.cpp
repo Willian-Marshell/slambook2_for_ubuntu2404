@@ -1,29 +1,25 @@
-/*
- * <one line to give the program's name and a brief idea of what it does.>
- * Copyright (C) 2016  <copyright holder> <email>
+/**
+ * @file frame.cpp
+ * @brief Frame结构体实现
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * @note 定义见 frame.h
  */
 
 #include "myslam/frame.h"
 
 namespace myslam {
 
+/**
+ * @brief 构造函数
+ */
 Frame::Frame(long id, double time_stamp, const SE3 &pose, const Mat &left, const Mat &right)
         : id_(id), time_stamp_(time_stamp), pose_(pose), left_img_(left), right_img_(right) {}
 
+/**
+ * @brief 工厂方法创建新帧，自动分配唯一ID
+ * @return 新创建的帧指针
+ * @note 调用位置: dataset.cpp 的 NextFrame() 调用
+ */
 Frame::Ptr Frame::CreateFrame() {
     static long factory_id = 0;
     Frame::Ptr new_frame(new Frame);
@@ -31,6 +27,10 @@ Frame::Ptr Frame::CreateFrame() {
     return new_frame;
 }
 
+/**
+ * @brief 设置为关键帧并分配关键帧ID
+ * @note 调用位置: frontend.cpp 的 InsertKeyframe(), BuildInitMap() 调用
+ */
 void Frame::SetKeyFrame() {
     static long keyframe_factory_id = 0;
     is_keyframe_ = true;

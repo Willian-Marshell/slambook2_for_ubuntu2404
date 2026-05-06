@@ -1,3 +1,13 @@
+/**
+ * @file g2o_types.h
+ * @brief g2o优化相关的自定义顶点和边类型
+ *
+ * 定义了用于Bundle Adjustment的g2o顶点（VertexPose, VertexXYZ）
+ * 和边（EdgeProjectionPoseOnly, EdgeProjection）。
+ * @note 调用位置:
+ * - backend.cpp 的 Optimize() 使用这些类型构建图优化
+ */
+
 //
 // Created by gaoxiang on 19-5-4.
 //
@@ -20,6 +30,13 @@
 #include <g2o/solvers/dense/linear_solver_dense.h>
 
 namespace myslam {
+
+/**
+ * @brief 相机位姿顶点（6自由度SE3）
+ *
+ * 用于BA优化中表示相机位姿。
+ * @note 调用位置: backend.cpp 的 Optimize() 创建并添加到g2o图
+ */
 /// vertex and edges used in g2o ba
 /// 位姿顶点
 class VertexPose : public g2o::BaseVertex<6, SE3> {
@@ -41,6 +58,12 @@ class VertexPose : public g2o::BaseVertex<6, SE3> {
     virtual bool write(std::ostream &out) const override { return true; }
 };
 
+/**
+ * @brief 3D地图点顶点
+ *
+ * 用于BA优化中表示三维点位置。
+ * @note 调用位置: backend.cpp 的 Optimize() 创建并添加到g2o图
+ */
 /// 路标顶点
 class VertexXYZ : public g2o::BaseVertex<3, Vec3> {
    public:
@@ -58,11 +81,22 @@ class VertexXYZ : public g2o::BaseVertex<3, Vec3> {
     virtual bool write(std::ostream &out) const override { return true; }
 };
 
+/**
+ * @brief 仅估计位姿的一元边（PnP误差）
+ *
+ * 用于仅优化相机位姿时的重投影误差计算。
+ * @note 调用位置: backend.cpp 的 Optimize() 使用
+ */
 /// 仅估计位姿的一元边
 class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
+    /**
+     * @brief 构造函数
+     * @param pos 3D点位置
+     * @param K 相机内参
+     */
     EdgeProjectionPoseOnly(const Vec3 &pos, const Mat33 &K)
         : _pos3d(pos), _K(K) {}
 
@@ -96,16 +130,27 @@ class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
     virtual bool write(std::ostream &out) const override { return true; }
 
    private:
-    Vec3 _pos3d;
-    Mat33 _K;
+    Vec3 _pos3d;   ///< 3D点位置
+    Mat33 _K;      ///< 相机内参
 };
 
+/**
+ * @brief 相机位姿+地图点二元边（BA误差）
+ *
+ * 同时优化相机位姿和地图点位置时的重投影误差。
+ * @note 调用位置: backend.cpp 的 Optimize() 使用
+ */
 /// 带有地图和位姿的二元边
 class EdgeProjection
     : public g2o::BaseBinaryEdge<2, Vec2, VertexPose, VertexXYZ> {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
+    /**
+     * @brief 构造函数
+     * @param K 相机内参
+     * @param cam_ext 相机外参
+     */
     /// 构造时传入相机内外参
     EdgeProjection(const Mat33 &K, const SE3 &cam_ext) : _K(K) {
         _cam_ext = cam_ext;
@@ -147,8 +192,8 @@ class EdgeProjection
     virtual bool write(std::ostream &out) const override { return true; }
 
    private:
-    Mat33 _K;
-    SE3 _cam_ext;
+    Mat33 _K;      ///< 相机内参
+    SE3 _cam_ext;  ///< 相机外参
 };
 
 }  // namespace myslam

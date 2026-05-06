@@ -1,20 +1,8 @@
-/*
- * <one line to give the program's name and a brief idea of what it does.>
- * Copyright (C) 2016  <copyright holder> <email>
+/**
+ * @file mappoint.cpp
+ * @brief MapPoint结构体实现
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * @note 定义见 mappoint.h
  */
 
 #include "myslam/mappoint.h"
@@ -22,8 +10,18 @@
 
 namespace myslam {
 
+/**
+ * @brief 构造函数
+ * @param id 地图点ID
+ * @param position 世界坐标位置
+ */
 MapPoint::MapPoint(long id, Vec3 position) : id_(id), pos_(position) {}
 
+/**
+ * @brief 工厂方法创建新地图点
+ * @return 新创建的地图点指针
+ * @note 调用位置: frontend.cpp 的 BuildInitMap(), TriangulateNewPoints() 调用
+ */
 MapPoint::Ptr MapPoint::CreateNewMappoint() {
     static long factory_id = 0;
     MapPoint::Ptr new_mappoint(new MapPoint);
@@ -31,6 +29,13 @@ MapPoint::Ptr MapPoint::CreateNewMappoint() {
     return new_mappoint;
 }
 
+/**
+ * @brief 移除观测
+ *
+ * 从观测列表中移除指定特征点，同时减少观测计数。
+ * @param feat 要移除的特征点
+ * @note 调用位置: map.cpp 的 RemoveOldKeyframe() 调用
+ */
 void MapPoint::RemoveObservation(std::shared_ptr<Feature> feat) {
     std::unique_lock<std::mutex> lck(data_mutex_);
     for (auto iter = observations_.begin(); iter != observations_.end();

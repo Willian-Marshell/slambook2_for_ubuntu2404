@@ -1,6 +1,10 @@
-//
-// Created by gaoxiang on 19-5-2.
-//
+/**
+ * @file backend.cpp
+ * @brief Backend类实现
+ *
+ * 在独立线程中运行Bundle Adjustment优化。
+ * @note 定义见 backend.h
+ */
 
 #include "myslam/backend.h"
 #include "myslam/algorithm.h"
@@ -11,22 +15,40 @@
 
 namespace myslam {
 
+/**
+ * @brief 构造函数，启动优化线程
+ * @note 调用位置: visual_odometry.cpp 的 Init() 创建Backend时调用
+ */
 Backend::Backend() {
     backend_running_.store(true);
     backend_thread_ = std::thread(std::bind(&Backend::BackendLoop, this));
 }
 
+/**
+ * @brief 触发地图更新，唤醒优化线程
+ * @note 调用位置: frontend.cpp 的 InsertKeyframe() 调用
+ */
 void Backend::UpdateMap() {
     std::unique_lock<std::mutex> lock(data_mutex_);
     map_update_.notify_one();
 }
 
+/**
+ * @brief 关闭后端线程
+ * @note 调用位置: visual_odometry.cpp 的 Run() 循环退出时调用
+ */
 void Backend::Stop() {
     backend_running_.store(false);
     map_update_.notify_one();
     backend_thread_.join();
 }
 
+/**
+ * @brief 后端优化循环
+ *
+ * 等待 map_update_ 信号，收到信号后对活跃关键帧和地图点进行BA优化。
+ * @note 在独立线程中运行
+ */
 void Backend::BackendLoop() {
     while (backend_running_.load()) {
         std::unique_lock<std::mutex> lock(data_mutex_);
@@ -39,6 +61,20 @@ void Backend::BackendLoop() {
     }
 }
 
+/**
+ * @brief 执行Bundle Adjustment优化
+ *
+ * 使用g2o构建图优化问题：
+ * - VertexPose: 关键帧位姿顶点
+ * - VertexXYZ: 地图点点顶点
+ * - EdgeProjection: 重投影误差边
+ *
+ * 使用Huber鲁棒核函数，通过迭代调整阈值剔除outlier。
+ *
+ * @param keyframes 关键帧
+ * @param landmarks 地图点
+ * @note 调用位置: BackendLoop() 调用
+ */
 void Backend::Optimize(Map::KeyframesType &keyframes,
                        Map::LandmarksType &landmarks) {
     // setup g2o
@@ -110,7 +146,7 @@ void Backend::Optimize(Map::KeyframesType &keyframes,
 
 
             if (vertices.find(frame->keyframe_id_) !=
-                vertices.end() && 
+                vertices.end() &&
                 vertices_landmarks.find(landmark_id) !=
                 vertices_landmarks.end()) {
                     edge->setId(index);
@@ -126,7 +162,7 @@ void Backend::Optimize(Map::KeyframesType &keyframes,
                     index++;
                 }
             else delete edge;
-                
+
         }
     }
 

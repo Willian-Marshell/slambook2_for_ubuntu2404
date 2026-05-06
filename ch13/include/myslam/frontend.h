@@ -1,3 +1,15 @@
+/**
+ * @file frontend.h
+ * @brief 前端类
+ *
+ * 视觉里程计前端，负责特征提取、跟踪、位姿估计和关键帧判断。
+ * 状态机管理：INITING -> TRACKING_GOOD/BAD -> LOST。
+ * @note 调用位置:
+ * - visual_odometry.cpp 的 Init(), Step() 调用 AddFrame()
+ * - backend.cpp 的 UpdateMap() 触发优化
+ * - viewer.cpp 的 UpdateMap() 更新可视化
+ */
+
 #pragma once
 #ifndef MYSLAM_FRONTEND_H
 #define MYSLAM_FRONTEND_H
@@ -13,11 +25,24 @@ namespace myslam {
 class Backend;
 class Viewer;
 
+/**
+ * @brief 前端状态枚举
+ *
+ * - INITING: 初始化状态
+ * - TRACKING_GOOD: 跟踪正常
+ * - TRACKING_BAD: 跟踪较差
+ * - LOST: 跟踪失败
+ */
 enum class FrontendStatus { INITING, TRACKING_GOOD, TRACKING_BAD, LOST };
 
 /**
- * 前端
- * 估计当前帧Pose，在满足关键帧条件时向地图加入关键帧并触发优化
+ * @brief 视觉里程计前端
+ *
+ * 负责：
+ * - 双目特征提取与匹配
+ * - 相对位姿估计（光流跟踪 + PnP）
+ * - 关键帧判断与三角化
+ * - 触发后端优化
  */
 class Frontend {
    public:
@@ -26,18 +51,45 @@ class Frontend {
 
     Frontend();
 
-    /// 外部接口，添加一个帧并计算其定位结果
+    /**
+     * @brief 添加帧并处理（外部接口）
+     * @param frame 输入帧
+     * @return true 处理成功
+     * @note 调用位置: visual_odometry.cpp 的 Step() 调用
+     */
     bool AddFrame(Frame::Ptr frame);
 
     /// Set函数
+    /**
+     * @brief 设置地图
+     * @param map 地图指针
+     */
     void SetMap(Map::Ptr map) { map_ = map; }
 
+    /**
+     * @brief 设置后端
+     * @param backend 后端指针
+     */
     void SetBackend(std::shared_ptr<Backend> backend) { backend_ = backend; }
 
+    /**
+     * @brief 设置可视化器
+     * @param viewer 可视化器指针
+     */
     void SetViewer(std::shared_ptr<Viewer> viewer) { viewer_ = viewer; }
 
+    /**
+     * @brief 获取前端状态
+     * @return FrontendStatus
+     * @note 调用位置: visual_odometry.cpp 的 GetFrontendStatus() 调用
+     */
     FrontendStatus GetStatus() const { return status_; }
 
+    /**
+     * @brief 设置相机
+     * @param left 左相机
+     * @param right 右相机
+     */
     void SetCameras(Camera::Ptr left, Camera::Ptr right) {
         camera_left_ = left;
         camera_right_ = right;
@@ -45,68 +97,76 @@ class Frontend {
 
    private:
     /**
-     * Track in normal mode
-     * @return true if success
+     * @brief 正常跟踪模式
+     * @return true 如果成功
      */
     bool Track();
 
     /**
-     * Reset when lost
-     * @return true if success
+     * @brief 跟踪失败时重置
+     * @return true 如果成功
      */
     bool Reset();
 
     /**
-     * Track with last frame
-     * @return num of tracked points
+     * @brief 跟踪上一帧（光流）
+     * @return 跟踪到的特征点数量
+     * @note 调用位置: Track() 调用
      */
     int TrackLastFrame();
 
     /**
-     * estimate current frame's pose
-     * @return num of inliers
+     * @brief 估计当前帧位姿（PnP）
+     * @return 内点数量
+     * @note 调用位置: Track() 调用
      */
     int EstimateCurrentPose();
 
     /**
-     * set current frame as a keyframe and insert it into backend
-     * @return true if success
+     * @brief 设置当前帧为关键帧并插入地图
+     * @return true 如果成功
+     * @note 调用位置: Track() 调用；调用 map_->InsertKeyFrame()
      */
     bool InsertKeyframe();
 
     /**
-     * Try init the frontend with stereo images saved in current_frame_
-     * @return true if success
+     * @brief 双目初始化
+     * @return true 如果成功
+     * @note 调用位置: AddFrame() 在 INITING 状态调用
      */
     bool StereoInit();
 
     /**
-     * Detect features in left image in current_frame_
-     * keypoints will be saved in current_frame_
-     * @return
+     * @brief 检测左图特征点（GFTT）
+     * @return 检测到的特征点数量
+     * @note 调用位置: StereoInit(), TrackLastFrame() 调用
      */
     int DetectFeatures();
 
     /**
-     * Find the corresponding features in right image of current_frame_
-     * @return num of features found
+     * @brief 在右图中查找对应特征点
+     * @return 找到对应点的数量
+     * @note 调用位置: StereoInit(), TrackLastFrame() 调用
      */
     int FindFeaturesInRight();
 
     /**
-     * Build the initial map with single image
-     * @return true if succeed
+     * @brief 构建初始地图（双目三角化）
+     * @return true 如果成功
+     * @note 调用位置: StereoInit() 调用
      */
     bool BuildInitMap();
 
     /**
-     * Triangulate the 2D points in current frame
-     * @return num of triangulated points
+     * @brief 三角化新点
+     * @return 三角化成功的点数量
+     * @note 调用位置: InsertKeyframe() 调用
      */
     int TriangulateNewPoints();
 
     /**
-     * Set the features in keyframe as new observation of the map points
+     * @brief 为关键帧设置地图点观测
+     * @note 调用位置: InsertKeyframe() 调用
      */
     void SetObservationsForKeyFrame();
 
